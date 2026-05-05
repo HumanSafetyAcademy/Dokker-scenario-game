@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scenario game HF - Casus mevrouw Dokkers</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800;900&display=swap');
+
+:root{
+  --bg:#dfeadf;
+  --frame:#ffffff;
+  --border:#cfcfcf;
+  --text:#111827;
+  --muted:#6b7280;
+  --accent:#6ebe45;
+  --accentLight:#cfe9bf;
+  --accentSoft:#e9f6e5;
+  --accentText:#0b1a0b;
+  --grey:#e6e6e6;
+  --greyText:#8a8a8a;
+  --badBg:#fde3e6;
+  --badText:#c81e2a;
+  --overlay:rgba(30,30,30,.74);
+  --radius:12px;
+  --shadow:0 2px 8px rgba(0,0,0,.10);
+  --notesW:390px;
+  --notesCollapsedW:56px;
+  --videoPadTop:70%;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:Roboto,system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.app{width:100%; padding:18px 14px 22px}
+.frame{width:100%; background:var(--frame); border:1px solid var(--border); border-radius:10px; overflow:hidden}
+.grid{
+  display:grid;
+  grid-template-columns:1fr var(--notesW);
+  gap:18px;
+  padding:14px;
+  align-items:start;
+  transition:grid-template-columns .22s ease;
+}
+.grid.notesCollapsed{grid-template-columns:1fr var(--notesCollapsedW)}
+@media(max-width:980px){.grid,.grid.notesCollapsed{grid-template-columns:1fr}}
+
+.leftBox,.rightBox{
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#fff;
+  min-width:0;
+}
+.leftBox{padding:14px}
+.rightBox{overflow:hidden}
+
+.hTitle{margin:0 0 10px 0; font-size:22px; font-weight:900}
+
+.stepper{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 6px 12px;
+  margin-bottom:6px;
+  overflow-x:auto;
+}
+.step{display:flex; align-items:center; gap:8px; user-select:none; cursor:pointer; flex:0 0 auto}
+.step.locked{cursor:not-allowed; opacity:.55}
+.step .dot{
+  width:26px; height:26px; border-radius:999px;
+  border:2px solid #d1d5db; background:#fff;
+  display:flex; align-items:center; justify-content:center;
+}
+.step .label{font-size:14px; font-weight:900; color:#9ca3af; white-space:nowrap}
+.line{flex:1; min-width:24px; height:2px; background:#e5e7eb; border-radius:999px}
+.step.active .dot{border-color:var(--accent)}
+.step.active .dot::after{content:""; width:10px; height:10px; border-radius:999px; background:var(--accent)}
+.step.active .label{color:#111827}
+.step.done .dot{border-color:var(--accent); background:#f6fbf3}
+.step.done .dot::after{content:"✓"; color:var(--accent); font-weight:900; font-size:14px}
+.step.done .label{color:#111827; opacity:.9}
+
+.videoWrap{position:relative; width:100%; border-radius:10px; overflow:hidden; background:#111827}
+.videoRatio{position:relative; width:100%; padding-top:var(--videoPadTop); background:#111827}
+.videoFrame{position:absolute; inset:0; width:100%; height:100%; border:0; background:#111827}
+.videoPlaceholder{
+  position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+  padding:18px; color:#fff; background:#111827; text-align:center; line-height:1.45; z-index:2;
+}
+.videoTopBtns{position:absolute; top:10px; right:10px; display:flex; gap:10px; z-index:6}
+.pillDark{
+  appearance:none; border:1px solid rgba(255,255,255,.22);
+  background:rgba(0,0,0,.35); color:#fff;
+  padding:6px 10px; border-radius:999px; font-size:12px; font-weight:800; cursor:pointer;
+}
+.pillDark:hover{background:rgba(0,0,0,.45)}
+.pillDark:disabled{opacity:.45; cursor:not-allowed}
+
+.actionsRow{
+  display:flex; justify-content:flex-end; gap:12px; margin-top:10px;
+  flex-wrap:wrap; align-items:center;
+}
+.btn{
+  appearance:none; border:none; padding:10px 16px; border-radius:10px;
+  font-size:14px; font-weight:900; cursor:pointer; box-shadow:var(--shadow);
+}
+.btnContinue{background:var(--accent); color:var(--accentText)}
+.btnSecondary{background:var(--accentLight); color:var(--accentText)}
+.btnGrey{background:var(--grey); color:var(--greyText); cursor:not-allowed; box-shadow:none}
+.btnTry{background:var(--accent); color:var(--accentText)}
+.hidden{display:none!important}
+
+.subTitle{margin:16px 0 8px 0; font-size:20px; font-weight:900}
+.speaker{margin:0; font-size:14px; line-height:1.58; color:#111827}
+.speaker b{font-weight:900}
+
+.scrim{position:absolute; inset:0; background:rgba(0,0,0,.35); z-index:50; display:none}
+.modal{
+  position:absolute; inset:10px; background:var(--overlay); border-radius:14px;
+  padding:12px; z-index:51; display:none; overflow:auto;
+}
+.modalKicker{font-size:12px; font-weight:900; color:var(--accent); margin-bottom:6px}
+.modalTitle{margin:0 0 10px 0; font-size:20px; font-weight:900; color:#fff}
+.qText{margin:0 0 10px 0; color:rgba(255,255,255,.86); font-size:13px; line-height:1.45}
+.choice{
+  width:100%; text-align:left; border:none; background:#f2f2f2; border-radius:12px;
+  padding:12px 14px; cursor:pointer; margin-bottom:8px;
+  transition:background .12s ease, box-shadow .12s ease, transform .05s ease;
+}
+.choice:hover{background:var(--accentSoft); box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.choice:active{transform:translateY(1px)}
+.choice.selected{background:var(--accentSoft); outline:3px solid rgba(110,190,69,.45)}
+.choice.asked{background:#ececec; border:1px solid #d1d5db}
+.choice.asked strong,.choice.asked span{color:#6b7280}
+.choice.proceedChoice{background:var(--accent); border:2px solid rgba(0,0,0,.06)}
+.choice.proceedChoice strong,.choice.proceedChoice span{color:var(--accentText)}
+.choice strong{display:block; font-size:13px; font-weight:900; color:#111827; margin-bottom:2px}
+.choice span{display:block; font-size:12px; color:#3b3b3b}
+.checkRow{display:flex; justify-content:flex-end; margin-top:10px}
+.checkBtn{min-width:160px}
+
+.feedback{margin-top:10px; border-radius:12px; padding:12px 14px; display:none}
+.feedback.show{display:block}
+.feedback.ok{background:var(--accentSoft)}
+.feedback.bad{background:var(--badBg)}
+.tag{display:flex; align-items:center; gap:10px; font-weight:900; margin-bottom:6px; font-size:13px}
+.tagIcon{width:30px; height:30px; border-radius:999px; background:#fff; display:flex; align-items:center; justify-content:center}
+.tagIcon svg{width:16px; height:16px}
+.feedback.ok .tagText{color:#2f7d2f}
+.feedback.ok .tagIcon svg path{stroke:#2f7d2f}
+.feedback.bad .tagText{color:var(--badText)}
+.feedback.bad .tagIcon svg path{stroke:var(--badText)}
+
+.notesHead{
+  padding:12px 14px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.notesTitle{margin:0; font-size:18px; font-weight:900}
+.notesHint{font-size:11px; font-weight:700; color:var(--muted)}
+.notesBtns{display:flex; gap:10px}
+.iconCircle{
+  width:30px; height:30px; border-radius:999px; border:1px solid #111827;
+  background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.iconCircle:hover{background:#f6f6f6}
+.iconCircle svg{width:16px; height:16px}
+.notesBody{padding:12px 14px; height:720px; overflow:auto}
+.noteItem{border:1px solid var(--border); border-radius:10px; background:#fff; margin-bottom:14px; overflow:hidden}
+.noteItem.editing{box-shadow:0 4px 10px rgba(0,0,0,.18)}
+.noteHeader{padding:12px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; cursor:pointer}
+.noteHeaderLeft{display:flex; flex-direction:column; gap:6px; flex:1; min-width:0}
+.noteTitleInput{
+  width:100%; border:1px solid #e5e7eb; border-radius:8px; padding:6px 8px;
+  font-weight:900; font-size:14px; font-family:inherit; color:#111827; background:#fff;
+}
+.meta{font-size:12px; font-weight:700; color:var(--muted)}
+.noteDeleteBtn{
+  width:30px; height:30px; border-radius:999px; border:1px solid #111827;
+  background:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.noteDeleteBtn:hover{background:#fff3f3}
+.noteBody{padding:12px; border-top:1px solid var(--border); display:none}
+.noteItem.open .noteBody{display:block}
+.noteBody textarea{
+  width:100%; min-height:200px; resize:vertical; border:none; outline:none;
+  font-family:inherit; font-size:13px; line-height:1.55; color:#111827;
+}
+.rightBox.collapsed .notesHead{padding:12px 8px; justify-content:center}
+.rightBox.collapsed .notesTitle,.rightBox.collapsed .notesHint,.rightBox.collapsed #btnAddNote,.rightBox.collapsed #btnDeleteAllNotes,.rightBox.collapsed #btnCopyNotes{display:none}
+.rightBox.collapsed .notesBtns{width:100%; justify-content:center}
+.rightBox.collapsed .notesBody{display:none}
+
+.endScreen{position:fixed; inset:0; background:#fff; z-index:9999; display:none; padding:22px 16px}
+.endInner{max-width:980px; margin:0 auto; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:18px; text-align:center}
+.endTitle{font-size:34px; font-weight:900; margin:0}
+.endSub{margin:0; max-width:720px; color:#374151; line-height:1.5}
+.endBtns{display:flex; gap:14px; flex-wrap:wrap; justify-content:center}
+.reportPanel{display:none; width:100%; max-width:980px; margin:0 auto; height:100%; overflow:auto}
+.reportCard{border:1px solid var(--border); border-radius:14px; padding:16px; background:#fff}
+.reportCard h2{margin:0 0 10px 0; font-size:20px; font-weight:900}
+.reportCard h3{margin:16px 0 8px 0; font-size:14px; font-weight:900}
+.reportCard p{margin:0 0 10px 0; line-height:1.55}
+.reportCard ul{margin:8px 0 0 18px}
+.reportTopBtns{display:flex; justify-content:center; gap:12px; margin-top:14px; flex-wrap:wrap}
+</style>
+</head>
+
+<body>
+
+<div class="endScreen" id="endScreen">
+  <div class="endInner" id="endHome">
+    <h1 class="endTitle">AFGEROND</h1>
+    <p class="endSub">Je hebt het scenario afgerond. Je kunt het opnieuw spelen of de eindrapportage openen.</p>
+    <div class="endBtns">
+      <button class="btn btnContinue" id="btnReplayScenario" type="button">Scenario opnieuw spelen</button>
+      <button class="btn btnSecondary" id="btnOpenReport" type="button">Eindrapportage</button>
+    </div>
+  </div>
+
+  <div class="reportPanel" id="endReport">
+    <div class="reportCard">
+      <h2>Eindrapportage</h2>
+      <h3>Samenvatting van de casus</h3>
+      <p id="reportCase"></p>
+      <h3>Bevindingen en leerpunten</h3>
+      <ul id="reportTakeaways"></ul>
+      <h3>Aanbevolen maatregelen</h3>
+      <ul id="reportMeasures"></ul>
+      <div class="reportTopBtns">
+        <button class="btn btnSecondary" id="btnBackToDone" type="button">Terug</button>
+        <button class="btn btnContinue" id="btnCopyReport" type="button">Rapport kopiëren</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="appRoot">
+  <div class="frame">
+    <div class="grid" id="mainGrid">
+      <div class="leftBox">
+
+        <div class="stepper" id="stepper">
+          <div class="step" id="step1"><div class="dot"></div><div class="label">1. Casus</div></div>
+          <div class="line"></div>
+          <div class="step" id="step2"><div class="dot"></div><div class="label">2. Interview</div></div>
+          <div class="line"></div>
+          <div class="step" id="step3"><div class="dot"></div><div class="label">3. Analyse</div></div>
+          <div class="line"></div>
+          <div class="step" id="step4"><div class="dot"></div><div class="label">4. Maatregelen</div></div>
+          <div class="line"></div>
+          <div class="step" id="step5"><div class="dot"></div><div class="label">5. Afronding</div></div>
+        </div>
+
+        <h2 class="hTitle" id="watchTitle">Bekijk de video</h2>
+
+        <div class="videoWrap" id="videoWrap">
+          <div class="videoTopBtns">
+            <button class="pillDark" id="btnFullscreen" type="button">Volledig scherm</button>
+            <button class="pillDark" id="btnOpenYT" type="button">Openen</button>
+          </div>
+
+          <div class="videoRatio">
+            <iframe id="videoFrame" class="videoFrame" src="" title="Scenario video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowfullscreen></iframe>
+
+            <div id="videoPlaceholder" class="videoPlaceholder">
+              <div>
+                <div style="font-weight:900; margin-bottom:6px;">VOEG HIER VIDEO TOE</div>
+                <div style="color:rgba(255,255,255,.85); font-size:13px;">Voor deze scène is nog geen video toegevoegd.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="scrim" id="scrim"></div>
+
+          <div class="modal" id="modal">
+            <div class="modalKicker" id="modalKicker">Vraag</div>
+            <h3 class="modalTitle" id="modalHeader">—</h3>
+
+            <div id="optionsView" style="display:none;">
+              <p class="qText" id="qText"></p>
+              <div id="choices"></div>
+            </div>
+
+            <div id="feedbackView" style="display:none;">
+              <div id="feedback" class="feedback" role="status" aria-live="polite">
+                <div class="tag">
+                  <span class="tagIcon" id="tagIcon"></span>
+                  <span class="tagText" id="fbTag">Feedback</span>
+                </div>
+                <div id="fbText" style="color:#111827; font-size:13px; line-height:1.45;"></div>
+              </div>
+
+              <div class="checkRow" style="justify-content:flex-end; margin-top:12px;">
+                <button class="btn btnSecondary hidden" id="btnAskAnother" type="button">Terug naar interviewvragen</button>
+              </div>
+            </div>
+
+            <div id="questionPlaceholder" class="qText" style="margin:0;">
+              Klik op Doorgaan om de vraag te openen.
+            </div>
+          </div>
+        </div>
+
+        <div class="actionsRow">
+          <button class="btn btnTry hidden" id="btnTryBottom" type="button">Opnieuw proberen</button>
+          <button class="btn btnContinue" id="btnContinueBottom" type="button">Doorgaan</button>
+          <button class="btn btnSecondary" id="btnSecondaryBottom" type="button">Video opnieuw afspelen</button>
+        </div>
+
+        <div class="subTitle" id="stageTitle">Casusbeschrijving</div>
+        <p class="speaker" id="speakerBox"><b>Verteller:</b> —</p>
+      </div>
+
+      <div class="rightBox" id="notesPane">
+        <div class="notesHead">
+          <div style="display:flex; align-items:baseline; gap:8px;">
+            <h2 class="notesTitle">Notities</h2>
+            <span class="notesHint">Worden automatisch opgeslagen.</span>
+          </div>
+
+          <div class="notesBtns">
+            <button class="iconCircle" id="btnToggleNotes" type="button" title="Notities inklappen">
+              <svg id="toggleNotesIcon" viewBox="0 0 24 24" fill="none">
+                <path d="M15 6l-6 6 6 6" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+
+            <button class="iconCircle" id="btnAddNote" type="button" title="Notitie toevoegen">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 5v14M5 12h14" stroke="#111827" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+
+            <button class="iconCircle" id="btnDeleteAllNotes" type="button" title="Alle notities verwijderen">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M9 3h6l1 2h4v2H4V5h4l1-2z" fill="#111827" opacity=".9"/>
+                <path d="M6 9h12l-1 12H7L6 9z" stroke="#111827" stroke-width="2" stroke-linejoin="round" opacity=".95"/>
+                <path d="M10 12v6M14 12v6" stroke="#111827" stroke-width="2" stroke-linecap="round" opacity=".95"/>
+              </svg>
+            </button>
+
+            <button class="iconCircle" id="btnCopyNotes" type="button" title="Notities kopiëren">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M9 9h10v12H9V9z" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" stroke="#111827" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="notesBody" id="notesBody"><div id="notesList"></div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const VID = {
+  triagistPerspective:"iU8ZrODfC-8",
+  knowledge:"8i5czsmcfSU",
+  interviewTriagist:"mPVkwf5MW1o",
+  triagistOwnWords:"JxqaC8Oj4pk",
+  triagistNormal:"O9NnHo4j0C4",
+  triagistDifferent:"Imc009-xT6A",
+  triagistPatientNotSpeak:"Pdi_M5u35B0",
+  triagistFeeling:"W4U68K4wUvM",
+  regieartsPerspective:"sBkggPQNeA0",
+  regieartsPrepared:"1IiS9d3mv2A",
+  regieartsExperience:"21IXsy8MT7M",
+  regieartsComplaints:"wvS1nmjG20k",
+  regieartsTriageData:"lFbkQ3C3lLg",
+  gems:"rnwzl9wsZpI",
+  mto:"wNVVPFXZZk4",
+  measures:"OSflSuSu-qI",
+  closing:"mHWojj6c8FI"
+};
+
+const CASE_TEXT = `Mevrouw Dokkers had pijn op de borst en was kortademig. Haar echtgenoot belde de huisartsenpost en voerde het gesprek grotendeels namens haar. De triagist sprak mevrouw Dokkers niet rechtstreeks, terwijl dit volgens de werkwijze eigenlijk wel had gemoeten als de patiënt daartoe in staat is. Het NTS-systeem kwam uit op U1. De triagist vond dit te hoog, mede omdat de klachten leken op eerdere hyperventilatieaanvallen, en overlegde met de regiearts. De regiearts kende mevrouw Dokkers uit een eerdere praktijk en herkende het beeld van hyperventilatie. Na overleg werd afgeschaald naar U4. Achteraf bleek dat belangrijke signalen zijn gemist.`;
+
+const SCENES = [
+  {
+    id:"S1", stage:1, type:"single",
+    title:"Perspectief van de triagist",
+    speaker:"Triagist",
+    speakerText:`Vanuit het perspectief van de triagist begon de avond als een normale dienst. De echtgenoot van mevrouw Dokkers belde vanwege pijn op de borst en kortademigheid. De triagist hoorde mevrouw op de achtergrond, maar sprak haar niet rechtstreeks. Volgens de werkwijze hoort de patiënt zelf aan de lijn te komen als dat mogelijk is. Toch ging de triagist mee in het gesprek met de echtgenoot, omdat hij stellig en goed geïnformeerd overkwam. Tijdens het doorlopen van het NTS-systeem kwam een U1 naar voren. De triagist vond dit te hoog en overlegde met de regiearts. Daarna werd afgeschaald naar U4.`,
+    videoId:VID.triagistPerspective,
+    question:{
+      kicker:"Vraag 1 · SRK-model",
+      title:"Welk type gedrag volgens het SRK-model is hier vooral van toepassing bij de triagist?",
+      text:"Kies het antwoord dat het best past bij de bewuste inschatting die de triagist maakte.",
+      options:[
+        {label:"Skill-based gedrag", hint:"Een grotendeels automatische routinehandeling", correct:false, feedback:"Niet helemaal. Een skill-based fout is een onbewuste uitvoeringsfout van een correct plan. In deze casus maakte de triagist juist een bewuste inschatting."},
+        {label:"Rule-based gedrag", hint:"Een bekende regel of procedure bewust toepassen", correct:false, feedback:"Niet helemaal. De triagist ging juist niet terug naar de regel om de patiënt zelf te spreken. De kern ligt in het maken van een eigen professionele inschatting."},
+        {label:"Knowledge-based gedrag", hint:"Actief redeneren op basis van kennis, ervaring en beperkte informatie", correct:true, feedback:"Juist. De triagist maakte een bewuste inschatting in een specifieke situatie. Daarbij week zij af van de NTS-uitkomst en gebruikte zij eigen kennis en ervaring om tot een urgentiebepaling te komen. Dat past bij knowledge-based gedrag."}
+      ]
+    }
+  },
+  {
+    id:"S2", stage:1, type:"single",
+    title:"Uitleg knowledge-based gedrag",
+    speaker:"Verteller",
+    speakerText:`Knowledge-based gedrag ontstaat wanneer iemand zelf een plan of beoordeling moet maken in een nieuwe, complexe of onduidelijke situatie. De persoon gebruikt kennis, ervaring en de beschikbare informatie. Het risico is dat belangrijke informatie ontbreekt, verkeerd wordt gewogen of niet goed met elkaar wordt verbonden. In deze casus kon de triagist mevrouw Dokkers niet rechtstreeks beoordelen en moest zij op basis van indirecte informatie een urgentiebepaling maken.`,
+    videoId:VID.knowledge,
+    question:{
+      kicker:"Vraag 2 · Risico van knowledge-based gedrag",
+      title:"Wat was in deze casus het belangrijkste risico van knowledge-based gedrag?",
+      text:"Let op: het gaat hier niet om automatisch handelen, maar om redeneren op basis van beperkte informatie.",
+      options:[
+        {label:"De triagist vergat onbewust een vaste stap in een routinehandeling", hint:"Dit past eerder bij een lapse", correct:false, feedback:"Niet helemaal. De casus draait niet om een vergeten routinestap, maar om een bewuste beoordeling op basis van beperkte informatie."},
+        {label:"De triagist kon niet alle noodzakelijke informatie rechtstreeks bij de patiënt ophalen", hint:"Beperkte informatie beïnvloedt de beoordeling", correct:true, feedback:"Juist. De triagist moest redeneren op basis van informatie van de echtgenoot en eigen ervaring. Daardoor was het risico groter dat alarmsignalen niet volledig werden herkend of meegewogen."},
+        {label:"De triagist volgde het systeemadvies zonder professionele beoordeling", hint:"Dit suggereert automatisch volgen", correct:false, feedback:"Niet helemaal. De triagist volgde het systeemadvies juist niet automatisch, maar maakte een eigen beoordeling en overlegde met de regiearts."}
+      ]
+    }
+  },
+  {
+    id:"S3", stage:2, type:"interview",
+    title:"Interview met de triagist",
+    speaker:"Verteller",
+    speakerText:`Nu je meer weet over de casus, kun je de triagist interviewen. Stel vragen die helpen om te begrijpen waarom de triagist bepaalde keuzes maakte en welke factoren meespeelden. Je mag meerdere vragen stellen. Ga verder zodra je voldoende informatie hebt voor de analyse.`,
+    videoId:VID.interviewTriagist,
+    menu:{
+      kicker:"Interview triagist",
+      title:"Welke vraag wil je aan de triagist stellen?",
+      proceedKey:"PROCEED",
+      options:[
+        {key:"A", label:"1. Kun je in je eigen woorden beschrijven wat je aan het doen was tijdens het incident?", hint:"Reconstrueer het handelen en de informatiebasis", response:{videoId:VID.triagistOwnWords, takeaway:"De triagist beschrijft dat zij de standaard triagevragen doorliep, maar haar oordeel baseerde op wat de echtgenoot vertelde. Zij sprak mevrouw Dokkers niet rechtstreeks. De situatie leek op een hyperventilatieaanval, waardoor belangrijke signalen achteraf gezien zijn gemist."}},
+        {key:"B", label:"2. Hoe voer je deze triage normaal gesproken uit?", hint:"Vergelijk de normale werkwijze met deze casus", response:{videoId:VID.triagistNormal, takeaway:"Normaal gesproken spreekt de triagist direct met de patiënt en volgt zij de NTS-procedure. Als dat niet lukt, leunt zij meer op ervaring en vergelijkt zij de situatie met eerdere gevallen."}},
+        {key:"C", label:"3. Was er iets anders aan deze situatie of aan de taak dit keer?", hint:"Onderzoek contextfactoren", response:{videoId:VID.triagistDifferent, takeaway:"Deze keer was mevrouw Dokkers moeilijk bereikbaar en nam haar echtgenoot het gesprek over. De triagist voelde zich bezwaard om daar tegenin te gaan, ook al hoort zij de patiënt eigenlijk zelf te spreken. De klachten leken bovendien op eerdere hyperventilatie, wat haar geruststelde."}},
+        {key:"D", label:"4. Hoe ga je ermee om als je een patiënt niet zelf kunt spreken?", hint:"Onderzoek kennis, opleiding en handelingsperspectief", response:{videoId:VID.triagistPatientNotSpeak, takeaway:"De triagist kan zich niet goed herinneren wat de beste werkwijze is wanneer de patiënt niet zelf spreekt. Zij vraagt normaal wel om de patiënt zelf te spreken, maar ging nu mee in het verhaal van de echtgenoot. Zij geeft aan behoefte te hebben aan betere handvatten voor dit soort situaties."}},
+        {key:"E", label:"5. Hoe voelde je je op dat moment?", hint:"Onderzoek stress, vermoeidheid en alertheid", response:{videoId:VID.triagistFeeling, takeaway:"De triagist voelde zich rustig en gefocust. Er zijn geen duidelijke aanwijzingen dat stress of vermoeidheid de belangrijkste factor was. De kern lag vooral in de lastige communicatiesituatie en de beperkte directe informatie van de patiënt."}},
+        {key:"PROCEED", label:"Ga door naar het perspectief van de regiearts", hint:"Ga verder met de volgende stap", response:{}}
+      ]
+    }
+  },
+  {
+    id:"S4", stage:1, type:"single",
+    title:"Perspectief van de regiearts",
+    speaker:"Regiearts",
+    speakerText:`De regiearts hoorde de casus van de triagist. Zij kwam zelfverzekerd over en leek de situatie goed te hebben begrepen. De regiearts kende mevrouw Dokkers uit een eerdere praktijk en wist dat zij vaker hyperventilatieklachten had gehad. De klachten leken stabiel en er waren op dat moment geen duidelijke alarmsymptomen in het overleg. Op basis van die combinatie leek afschalen naar U4 verantwoord. Achteraf bleek dat de eerdere bekendheid met de patiënt het oordeel van de regiearts heeft beïnvloed.`,
+    videoId:VID.regieartsPerspective,
+    question:{
+      kicker:"Vraag 3 · SRK-model",
+      title:"Welk type gedrag vertoonde de regiearts tijdens zijn besluitvorming?",
+      text:"Kijk vooral naar de manier waarop eerdere ervaring en professionele beoordeling een rol speelden.",
+      options:[
+        {label:"Skill-based gedrag", hint:"Automatische uitvoering van een routinehandeling", correct:false, feedback:"Niet helemaal. Er is geen sprake van een onbewuste uitvoeringsfout van een correct plan."},
+        {label:"Rule-based gedrag", hint:"Het bewust toepassen van een vaste regel", correct:false, feedback:"Niet helemaal. De casus gaat niet vooral over het verkeerd volgen van één duidelijke procedure, maar over een professionele inschatting."},
+        {label:"Knowledge-based gedrag", hint:"Redeneren op basis van kennis, ervaring en beschikbare informatie", correct:true, feedback:"Juist. De regiearts baseerde zijn besluit op eerdere kennis van de patiënt, ervaring met vergelijkbare gevallen en de informatie van de triagist. Dat past bij knowledge-based gedrag."}
+      ]
+    }
+  },
+  {
+    id:"S5", stage:2, type:"interview",
+    title:"Interview met de regiearts",
+    speaker:"Verteller",
+    speakerText:`Nu interview je de regiearts. Deze vragen helpen om te begrijpen hoe de eerdere ervaring met mevrouw Dokkers, het overleg met de triagist en de fiattering samen invloed hadden op de besluitvorming.`,
+    videoId:VID.regieartsPerspective,
+    menu:{
+      kicker:"Interview regiearts",
+      title:"Welke vraag wil je aan de regiearts stellen?",
+      proceedKey:"PROCEED",
+      options:[
+        {key:"A", label:"1. Wat was uw eerste indruk toen de triagist de casus aan u voorlegde?", hint:"Onderzoek het eerste beeld van de casus", response:{videoId:VID.regieartsPrepared, takeaway:"De regiearts vond dat de triagist goed voorbereid klonk en een duidelijk overzicht gaf. Het leek op een klassieke hyperventilatieaanval. Daardoor ontstond weinig reden om aan haar oordeel te twijfelen."}},
+        {key:"B", label:"2. Hoe heeft uw eerdere ervaring met deze patiënt uw beslissing beïnvloed?", hint:"Onderzoek herkenning en aannames", response:{videoId:VID.regieartsExperience, takeaway:"De eerdere ervaring had sterke invloed. De regiearts kende mevrouw Dokkers en wist dat zij vaker vergelijkbare klachten had gehad. Daardoor werd het makkelijker om te denken dat het opnieuw hetzelfde zou zijn."}},
+        {key:"C", label:"3. Wat gaf u het vertrouwen dat afschalen verantwoord was?", hint:"Onderzoek de onderbouwing van de afschaling", response:{videoId:VID.regieartsComplaints, takeaway:"De klachten namen af tijdens het gesprek en de triagist klonk overtuigd. Deze combinatie gaf de regiearts het gevoel dat de situatie onder controle was."}},
+        {key:"D", label:"4. Hoe verliep het fiatteren van het triageverslag?", hint:"Onderzoek de onafhankelijke controle", response:{videoId:VID.regieartsTriageData, takeaway:"Normaal leest de regiearts het verslag na en controleert hij of alles klopt. In deze casus had hij het gesprek al gehoord en las hij het verslag niet opnieuw volledig na. Daardoor werd de onvolledige informatie niet alsnog opgemerkt."}},
+        {key:"E", label:"5. Welke lessen trekt u uit dit incident?", hint:"Onderzoek verbeterkansen", response:{videoId:VID.regieartsTriageData, takeaway:"De regiearts wil voortaan de triagegegevens volledig nalopen, ook wanneer er al mondeling overleg is geweest. Ook wil hij meer aandacht besteden aan het expliciet bespreken van twijfel."}},
+        {key:"PROCEED", label:"Ga door naar de analyse", hint:"Ga verder met de analysevragen", response:{}}
+      ]
+    }
+  },
+  {
+    id:"S6", stage:3, type:"single",
+    title:"GEMS-model: fouttype triagist",
+    speaker:"Verteller",
+    speakerText:`Het GEMS-model helpt om menselijk gedrag bij fouten beter te begrijpen. Het maakt onderscheid tussen slips, lapses, rule-based vergissingen, knowledge-based vergissingen en overtredingen. In deze stap koppel je het gedrag van de triagist aan het juiste fouttype.`,
+    videoId:VID.gems,
+    question:{
+      kicker:"Vraag 4 · GEMS-model",
+      title:"Welk type fout maakte de triagist toen zij de patiënt niet zelf sprak?",
+      text:"Let op het verschil tussen een onbewuste uitvoeringsfout en een bewuste afwijking van de werkwijze.",
+      options:[
+        {label:"Een slip", hint:"Een onbewuste uitvoeringsfout", correct:false, feedback:"Niet helemaal. Een slip is een onbewuste uitvoeringsfout van een correct plan. De triagist week hier bewust af van de gebruikelijke werkwijze."},
+        {label:"Een rule-based vergissing", hint:"Een procedure verkeerd toepassen", correct:false, feedback:"Niet helemaal. De triagist wist dat zij de patiënt eigenlijk zelf moest spreken, maar ging mee in het verzoek van de echtgenoot. Dat is geen gewone procedurefout."},
+        {label:"Een overtreding", hint:"Bewust afwijken van een regel of afspraak", correct:true, feedback:"Juist. De triagist wist dat zij de patiënte eigenlijk zelf moest spreken, maar ging mee in het verzoek van de echtgenoot. Daarmee was sprake van een bewuste afwijking van de gebruikelijke werkwijze onder situationele omstandigheden."}
+      ]
+    }
+  },
+  {
+    id:"S7", stage:3, type:"single",
+    title:"GEMS-model: fouttype regiearts",
+    speaker:"Verteller",
+    speakerText:`Nu beoordeel je de rol van de regiearts. De vraag is welk fouttype het best past bij het fiatteren en het afschalen naar U4.`,
+    videoId:VID.gems,
+    question:{
+      kicker:"Vraag 5 · GEMS-model",
+      title:"Welk type fout maakte de regiearts bij het fiatteren van de triage en de afschaling naar U4?",
+      text:"Kijk naar de invloed van eerdere ervaring, onvolledige informatie en professionele beoordeling.",
+      options:[
+        {label:"Een lapse", hint:"Iets onbewust vergeten of overslaan", correct:false, feedback:"Niet helemaal. Bij een lapse gaat het om een onbewuste uitvoeringsfout. Hier gaat het vooral om een verkeerde professionele inschatting."},
+        {label:"Een rule-based vergissing", hint:"De verkeerde regel kiezen of een regel verkeerd toepassen", correct:false, feedback:"Niet helemaal. De casus draait niet vooral om het verkeerd toepassen van één duidelijke regel, maar om beoordeling op basis van ervaring en beperkte informatie."},
+        {label:"Een knowledge-based vergissing", hint:"Een denkfout bij redeneren op basis van kennis en ervaring", correct:true, feedback:"Juist. De regiearts maakte een professionele inschatting op basis van onvolledige informatie, eerdere ervaring met mevrouw Dokkers en het overleg met de triagist. Zijn eerdere beeld van hyperventilatie kreeg te veel gewicht."}
+      ]
+    }
+  },
+  {
+    id:"S8", stage:3, type:"single",
+    title:"MTO-model: triagist",
+    speaker:"Verteller",
+    speakerText:`Het MTO-model helpt om incidenten te analyseren vanuit de samenhang tussen Mens, Techniek en Organisatie. Bij Mens kijk je naar waarnemen, denken, beslissen en handelen. Bij Techniek kijk je naar hulpmiddelen en informatie. Bij Organisatie kijk je naar afspraken, competenties, overleg en borging.`,
+    videoId:VID.mto,
+    question:{
+      kicker:"Vraag 6 · MTO-model",
+      title:"Welke interactie tussen Mens en Organisatie speelde waarschijnlijk het sterkst bij de triagist?",
+      text:"Kies de uitspraak die het beste past bij het omgaan met een echtgenoot die het gesprek wilde overnemen.",
+      options:[
+        {label:"De triagist maakte vooral een registratiefout, waardoor de informatie verkeerd in het systeem terechtkwam.", hint:"Techniek en registratie", correct:false, feedback:"Niet helemaal. Er zijn geen duidelijke aanwijzingen dat een technische registratiefout de kern was."},
+        {label:"De triagist moest omgaan met een echtgenoot die het gesprek wilde voeren, terwijl de werkwijze vraagt om de patiënte zelf te spreken. Dit vraagt om competenties in gespreksvoering en omgaan met lastige gesprekssituaties.", hint:"Menselijk handelen en competentiebeheer", correct:true, feedback:"Juist. De kern ligt in de koppeling tussen menselijk handelen en organisatorisch competentiebeheer. De organisatie moet borgen dat triagisten voldoende vaardig blijven in begrenzen, doorvragen en professioneel vasthouden aan de triagewerkwijze."},
+        {label:"De triagist volgde automatisch een systeemadvies van de triagesoftware, zonder zelf een professionele beoordeling te maken.", hint:"Automatisch systeemgebruik", correct:false, feedback:"Niet helemaal. De triagist volgde het systeemadvies niet automatisch, maar maakte juist een eigen inschatting."}
+      ]
+    }
+  },
+  {
+    id:"S9", stage:3, type:"single",
+    title:"MTO-model: regiearts",
+    speaker:"Verteller",
+    speakerText:`Nu pas je het MTO-model toe op de regiearts. Let vooral op de relatie tussen professionele beoordeling en de organisatorische inrichting van fiattering.`,
+    videoId:VID.mto,
+    question:{
+      kicker:"Vraag 7 · MTO-model",
+      title:"Welke interactie tussen Mens en Organisatie speelde waarschijnlijk het sterkst bij de regiearts?",
+      text:"Kies de uitspraak die de rol van eerdere ervaring en fiattering het best beschrijft.",
+      options:[
+        {label:"De regiearts werd beïnvloed door eerdere ervaring met de patiënte en het overleg met de triagist, terwijl de fiattering als onafhankelijke controle onvoldoende stevig was ingericht of uitgevoerd.", hint:"Beoordeling plus organisatorische controle", correct:true, feedback:"Juist. De regiearts vertrouwde op eerdere ervaring en het mondeling overleg. De fiattering werkte daardoor onvoldoende als onafhankelijke controle."},
+        {label:"De regiearts kon het triageverslag technisch niet openen, waardoor fiattering praktisch onmogelijk was.", hint:"Technisch toegangsprobleem", correct:false, feedback:"Niet helemaal. De casus wijst niet op een technisch toegangsprobleem. De vraag is of de controlestap voldoende verplichtend en toetsbaar was ingericht."},
+        {label:"De regiearts volgde een verkeerde medische standaardregel voor hyperventilatie.", hint:"Medische standaardregel", correct:false, feedback:"Niet helemaal. De kern ligt vooral bij professionele inschatting en de inrichting van het fiatteringsproces."}
+      ]
+    }
+  },
+  {
+    id:"S10", stage:4, type:"multi",
+    title:"Verbetermaatregelen: operationeel niveau",
+    speaker:"Verteller",
+    speakerText:`Een incidentanalyse leidt pas tot echte verbetering als maatregelen niet alleen direct helpen in de praktijk, maar ook aansluiten op hoe de organisatie veiligheid structureel organiseert. In deze stap kijk je eerst naar operationele maatregelen. Die ondersteunen het directe handelen in vergelijkbare situaties.`,
+    videoId:VID.measures,
+    question:{
+      kicker:"Vraag 8 · Verbetermaatregelen",
+      title:"Welke twee maatregelen liggen vooral op operationeel niveau in deze casus?",
+      text:"Selecteer precies twee antwoorden.",
+      required:2,
+      options:[
+        {label:"De casus wordt opgenomen in de nieuwsbrief om risicobewustzijn binnen de organisatie te vergroten.", hint:"Algemene bewustwording", correct:false, feedback:"Niet juist. Een nieuwsbrief kan bewustzijn vergroten, maar verandert het directe handelen in de praktijk weinig."},
+        {label:"Trainingen voor gesprekstechnieken bij lastige situaties aanbieden aan triagisten, zoals wanneer een naaste het gesprek wil overnemen.", hint:"Praktische vaardigheid voor de uitvoering", correct:true, feedback:"Juist. Deze maatregel ondersteunt triagisten direct in het handelen tijdens lastige gesprekken."},
+        {label:"Regieartsen fiatteren een triage pas nadat zij drie vaste punten actief hebben gecontroleerd: de oorspronkelijke hulpvraag, de toegekende urgentie en de onderbouwing van eventuele afschaling.", hint:"Concrete controlestap in de uitvoering", correct:true, feedback:"Juist. Deze maatregel ondersteunt het directe handelen van de regiearts bij fiattering."},
+        {label:"De regiearts en triagist worden aangesproken op hun fouten en aangemoedigd om in de toekomst alerter te zijn.", hint:"Aanspreken op gedrag", correct:false, feedback:"Niet juist. Dit legt de nadruk te sterk op individueel gedrag en is geen goede systeemgerichte verbetermaatregel."}
+      ],
+      success:"Juist. De operationele maatregelen zijn de training in gesprekstechnieken en het actief controleren van drie vaste punten bij fiattering."
+    }
+  },
+  {
+    id:"S11", stage:4, type:"multi",
+    title:"Verbetermaatregelen: tactisch niveau",
+    speaker:"Verteller",
+    speakerText:`Tactische maatregelen gaan over hoe de organisatie veiligheid structureel organiseert. Ze zorgen dat risico’s niet alleen in één concrete situatie worden beheerst, maar blijvend worden herkend, gemonitord en bijgestuurd.`,
+    videoId:VID.measures,
+    question:{
+      kicker:"Vraag 9 · Verbetermaatregelen",
+      title:"Welke twee maatregelen liggen vooral op tactisch niveau in deze casus?",
+      text:"Selecteer precies twee antwoorden.",
+      required:2,
+      options:[
+        {label:"Een korte checklist toevoegen voor triagisten bij situaties waarin een naaste namens de patiënt wil spreken.", hint:"Praktisch hulpmiddel", correct:false, feedback:"Niet juist. Een checklist is vooral een operationeel hulpmiddel. Het borgt nog niet structureel hoe competenties worden ontwikkeld en gemonitord."},
+        {label:"Soft skills, zoals gesprekstechnieken voor lastige triagesituaties, expliciet opnemen in het competentiebeheer van triagisten, zodat deze vaardigheden structureel worden ontwikkeld, geoefend, beoordeeld en bijgestuurd.", hint:"Structureel competentiebeheer", correct:true, feedback:"Juist. Dit is tactisch, omdat de organisatie structureel stuurt op ontwikkeling, beoordeling en bijsturing van competenties."},
+        {label:"Een standaardzin opnemen waarmee de regiearts zichzelf herinnert aan het volledig nalopen van het triageverslag.", hint:"Individuele herinnering", correct:false, feedback:"Niet juist. Dit is vooral een operationele reminder en borgt het fiatteringsproces niet structureel."},
+        {label:"De fiattering organisatorisch zo inrichten dat het volledig nalopen van het triageverslag duidelijk, verplichtend, toetsbaar en periodiek geëvalueerd is.", hint:"Structurele inrichting en toetsing", correct:true, feedback:"Juist. Dit is tactisch, omdat de organisatie hiermee de fiattering als proces borgt."}
+      ],
+      success:"Juist. De tactische maatregelen zijn het structureel opnemen van gesprekstechnieken in competentiebeheer en het verplichtend, toetsbaar en periodiek geëvalueerd inrichten van fiattering."
+    }
+  },
+  {
+    id:"S12", stage:5, type:"finish",
+    title:"Afsluiting",
+    speaker:"Verteller",
+    speakerText:`Gefeliciteerd. Je hebt het volledige incidentonderzoek doorlopen. Je hebt de casus van mevrouw Dokkers onderzocht en de prestatiebeïnvloedende factoren geïdentificeerd. Daarbij heb je gewerkt met het SRK-model, het GEMS-model en het MTO-model. Door deze stappen te volgen, heb je gezien hoe menselijke fouten, systeemfactoren en organisatorische keuzes met elkaar samenhangen, en hoe structurele verbeteringen de patiëntveiligheid kunnen versterken.`,
+    videoId:VID.closing
+  }
+];
+
+function $(id){return document.getElementById(id)}
+const endScreen=$("endScreen"), endHome=$("endHome"), endReport=$("endReport"), btnReplayScenario=$("btnReplayScenario"), btnOpenReport=$("btnOpenReport"), btnBackToDone=$("btnBackToDone"), btnCopyReport=$("btnCopyReport"), reportCase=$("reportCase"), reportTakeaways=$("reportTakeaways"), reportMeasures=$("reportMeasures"), appRoot=$("appRoot");
+const videoFrame=$("videoFrame"), videoPlaceholder=$("videoPlaceholder"), btnOpenYT=$("btnOpenYT"), btnFullscreen=$("btnFullscreen");
+const btnTryBottom=$("btnTryBottom"), btnContinueBottom=$("btnContinueBottom"), btnSecondaryBottom=$("btnSecondaryBottom"), btnAskAnother=$("btnAskAnother");
+const scrim=$("scrim"), modal=$("modal"), modalKicker=$("modalKicker"), modalHeader=$("modalHeader"), optionsView=$("optionsView"), feedbackView=$("feedbackView"), questionPlaceholder=$("questionPlaceholder"), qText=$("qText"), choices=$("choices"), feedback=$("feedback"), fbTag=$("fbTag"), fbText=$("fbText"), tagIcon=$("tagIcon");
+const stageTitle=$("stageTitle"), speakerBox=$("speakerBox"), mainGrid=$("mainGrid"), notesPane=$("notesPane"), notesBody=$("notesBody"), notesList=$("notesList"), btnToggleNotes=$("btnToggleNotes"), toggleNotesIcon=$("toggleNotesIcon"), btnAddNote=$("btnAddNote"), btnDeleteAllNotes=$("btnDeleteAllNotes"), btnCopyNotes=$("btnCopyNotes");
+const steps=[$("step1"),$("step2"),$("step3"),$("step4"),$("step5")];
+
+const NOTES_KEY="hf_dokkers_notes_v1";
+const PROG_KEY="hf_dokkers_progress_v1";
+const NOTES_PANEL_KEY="hf_dokkers_notes_panel_v1";
+
+let notesData=[];
+const state={idx:0,maxIdx:0,mode:"watch",currentVideoId:null,selected:null,selectedMulti:new Set(),interviewPendingTakeaway:"",interviewAsked:{S3:new Set(),S5:new Set()},notesCollapsed:false};
+
+function escapeHTML(str){return String(str??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function setSpeaker(label,text){speakerBox.innerHTML=`<b>${escapeHTML(label)}:</b> ${escapeHTML(text).replace(/\n/g,"<br>")}`}
+function buildEmbedURL(videoId){return `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&controls=1&playsinline=1`}
+function loadVideo(videoId){
+  const missing=(!videoId || videoId==="INSERT VIDEO HERE");
+  if(missing){state.currentVideoId=null; videoFrame.src=""; videoPlaceholder.style.display="flex"; btnOpenYT.disabled=true; btnSecondaryBottom.disabled=true; btnSecondaryBottom.className="btn btnGrey"; return}
+  state.currentVideoId=videoId; videoPlaceholder.style.display="none"; btnOpenYT.disabled=false; btnSecondaryBottom.disabled=false; btnSecondaryBottom.className="btn btnSecondary"; videoFrame.src=buildEmbedURL(videoId)
+}
+function hardStopVideo(){try{videoFrame.src="about:blank"}catch(e){}}
+function showModal(){scrim.style.display="block"; modal.style.display="block"}
+function hideModal(){scrim.style.display="none"; modal.style.display="none"}
+function showOptions(){optionsView.style.display="block"; feedbackView.style.display="none"; questionPlaceholder.style.display="none"}
+function showFeedbackOnly(){optionsView.style.display="none"; feedbackView.style.display="block"; questionPlaceholder.style.display="none"}
+function showWaiting(){optionsView.style.display="none"; feedbackView.style.display="none"; questionPlaceholder.style.display="block"}
+function resetOverlayFeedback(){feedback.classList.remove("show","ok","bad"); feedback.style.display="none"; tagIcon.innerHTML=""; fbTag.textContent="Feedback"; fbText.innerHTML=""}
+function setFeedbackIcon(kind){tagIcon.innerHTML = kind==="ok" ? `<svg viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>` : `<svg viewBox="0 0 24 24" fill="none"><path d="M7 7l10 10M17 7L7 17" stroke-width="3" stroke-linecap="round"></path></svg>`}
+function showTryAgain(show){btnTryBottom.classList.toggle("hidden",!show)}
+function setContinueEnabled(enabled){btnContinueBottom.disabled=!enabled; btnContinueBottom.className=enabled?"btn btnContinue":"btn btnGrey"}
+function setContinueVisible(show){btnContinueBottom.classList.toggle("hidden",!show)}
+function setAskAnotherVisible(show){btnAskAnother.classList.toggle("hidden",!show)}
+
+function saveProgress(){
+  try{localStorage.setItem(PROG_KEY,JSON.stringify({idx:state.idx,maxIdx:state.maxIdx,asked:{S3:[...state.interviewAsked.S3],S5:[...state.interviewAsked.S5]}}))}catch(e){}
+}
+function loadProgress(){
+  try{
+    const raw=localStorage.getItem(PROG_KEY); if(!raw)return;
+    const p=JSON.parse(raw);
+    if(typeof p.maxIdx==="number")state.maxIdx=Math.max(0,Math.min(p.maxIdx,SCENES.length-1));
+    if(typeof p.idx==="number")state.idx=Math.max(0,Math.min(p.idx,state.maxIdx));
+    if(p.asked){state.interviewAsked.S3=new Set(p.asked.S3||[]); state.interviewAsked.S5=new Set(p.asked.S5||[])}
+  }catch(e){}
+}
+
+function updateStepper(){
+  const scene=SCENES[state.idx]; const active=scene.stage;
+  steps.forEach((el,i)=>{
+    const s=i+1; el.classList.remove("active","done","locked");
+    if(s<active)el.classList.add("done");
+    if(s===active)el.classList.add("active");
+    const firstIndex=SCENES.findIndex(x=>x.stage===s);
+    if(firstIndex>state.maxIdx)el.classList.add("locked");
+  });
+}
+function jumpToStage(stage){
+  const target=SCENES.findIndex(s=>s.stage===stage);
+  if(target<0 || target>state.maxIdx)return;
+  state.idx=target; saveProgress(); renderScene(false);
+}
+steps.forEach((el,i)=>el.onclick=()=>jumpToStage(i+1));
+
+function updateNotesPanelUI(){
+  mainGrid.classList.toggle("notesCollapsed",state.notesCollapsed);
+  notesPane.classList.toggle("collapsed",state.notesCollapsed);
+  btnToggleNotes.title=state.notesCollapsed?"Notities uitklappen":"Notities inklappen";
+  toggleNotesIcon.innerHTML=state.notesCollapsed
+    ? `<path d="M15 6l-6 6 6 6" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`
+    : `<path d="M9 6l6 6-6 6" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+}
+function loadNotesPanelState(){try{const raw=localStorage.getItem(NOTES_PANEL_KEY); if(raw)state.notesCollapsed=!!JSON.parse(raw).collapsed}catch(e){}}
+function saveNotesPanelState(){try{localStorage.setItem(NOTES_PANEL_KEY,JSON.stringify({collapsed:state.notesCollapsed}))}catch(e){}}
+function uid(){return "n_"+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function saveNotes(){try{localStorage.setItem(NOTES_KEY,JSON.stringify(notesData))}catch(e){}}
+function loadNotes(){try{notesData=JSON.parse(localStorage.getItem(NOTES_KEY)||"[]")}catch(e){notesData=[]} notesData=(notesData||[]).map(n=>({id:n.id||uid(),title:n.title||"Notitie",meta:n.meta||"",content:n.content||"",open:!!n.open})); if(notesData.length>0)notesData[0].open=true; renderNotes(); saveNotes()}
+function deleteAllNotes(){notesData=[]; try{localStorage.removeItem(NOTES_KEY)}catch(e){} renderNotes()}
+function compiledNotesText(){return notesData.map(n=>`${n.title}\n${n.content||""}\n`).join("\n---\n\n").trim()}
+async function copyAllNotes(){
+  const compiled=compiledNotesText();
+  if(!compiled){alert("Er zijn nog geen notities om te kopiëren."); return}
+  try{await navigator.clipboard.writeText(compiled); alert("Notities gekopieerd naar het klembord.")}catch(e){alert("Kopiëren mislukt. Kopieer handmatig.")}
+}
+function setEditingShadow(noteId){
+  notesList.querySelectorAll(".noteItem").forEach(el=>el.classList.remove("editing"));
+  if(noteId){const el=notesList.querySelector(`.noteItem[data-id="${noteId}"]`); if(el)el.classList.add("editing")}
+}
+function renderNotes(){
+  notesList.innerHTML="";
+  if(notesData.length>0)notesData[0].open=true;
+  notesData.forEach((note,index)=>{
+    const wrapper=document.createElement("div"); wrapper.className="noteItem"+(note.open?" open":""); wrapper.dataset.id=note.id;
+    const header=document.createElement("div"); header.className="noteHeader";
+    const left=document.createElement("div"); left.className="noteHeaderLeft";
+    const titleInput=document.createElement("input"); titleInput.type="text"; titleInput.className="noteTitleInput"; titleInput.value=note.title||"Titel van de notitie";
+    titleInput.onclick=e=>e.stopPropagation(); titleInput.onfocus=()=>setEditingShadow(note.id); titleInput.oninput=()=>{const i=notesData.findIndex(n=>n.id===note.id); if(i>=0){notesData[i].title=titleInput.value; saveNotes()}};
+    const meta=document.createElement("span"); meta.className="meta"; meta.textContent=note.meta||"";
+    left.appendChild(titleInput); left.appendChild(meta);
+    const delBtn=document.createElement("button"); delBtn.type="button"; delBtn.className="noteDeleteBtn"; delBtn.title="Notitie verwijderen"; delBtn.innerHTML=`<svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6l1 2h4v2H4V5h4l1-2z" fill="#111827" opacity=".9"/><path d="M6 9h12l-1 12H7L6 9z" stroke="#111827" stroke-width="2" stroke-linejoin="round" opacity=".95"/><path d="M10 12v6M14 12v6" stroke="#111827" stroke-width="2" stroke-linecap="round" opacity=".95"/></svg>`;
+    delBtn.onclick=e=>{e.stopPropagation(); notesData=notesData.filter(n=>n.id!==note.id); if(notesData.length>0)notesData[0].open=true; saveNotes(); renderNotes()};
+    header.appendChild(left); header.appendChild(delBtn);
+    const body=document.createElement("div"); body.className="noteBody";
+    const textarea=document.createElement("textarea"); textarea.value=note.content||""; textarea.onclick=e=>e.stopPropagation(); textarea.onfocus=()=>setEditingShadow(note.id); textarea.oninput=()=>{const i=notesData.findIndex(n=>n.id===note.id); if(i>=0){notesData[i].content=textarea.value; saveNotes()}};
+    header.onclick=()=>{if(index===0){notesData[0].open=true}else{notesData[index].open=!notesData[index].open} saveNotes(); renderNotes(); requestAnimationFrame(()=>{const ta=notesList.querySelector(`.noteItem[data-id="${note.id}"] textarea`); if(ta&&notesData[index]?.open)ta.focus()})};
+    body.appendChild(textarea); wrapper.appendChild(header); wrapper.appendChild(body); notesList.appendChild(wrapper);
+  });
+}
+function addNoteAuto(){
+  const scene=SCENES[state.idx]||{title:"Notities"}; const now=new Date();
+  const newNote={id:uid(),title:`${scene.title} · ${now.toLocaleString()}`,meta:now.toLocaleString(),content:"",open:true};
+  notesData.unshift(newNote); notesData[0].open=true; saveNotes(); renderNotes();
+  requestAnimationFrame(()=>{notesBody.scrollTop=0; const ta=notesList.querySelector(`.noteItem[data-id="${newNote.id}"] textarea`); if(ta)ta.focus()});
+}
+
+function makeCheckAnswerButton(){
+  const row=document.createElement("div"); row.className="checkRow";
+  const b=document.createElement("button"); b.type="button"; b.className="btn btnGrey checkBtn"; b.textContent="Controleer antwoord"; b.disabled=true;
+  row.appendChild(b); return {row,button:b};
+}
+function setCheckBtnEnabled(btn,enabled){btn.disabled=!enabled; btn.className=enabled?"btn btnContinue checkBtn":"btn btnGrey checkBtn"}
+function renderSingle(scene){
+  modalKicker.textContent=scene.question.kicker||"Vraag"; modalHeader.textContent=scene.question.title||"Vraag"; showOptions(); qText.textContent=scene.question.text||""; choices.innerHTML=""; resetOverlayFeedback(); showTryAgain(false); setAskAnotherVisible(false);
+  state.selected=null;
+  const {row,button}=makeCheckAnswerButton(); const optionButtons=[];
+  scene.question.options.forEach((opt,i)=>{
+    const b=document.createElement("button"); b.type="button"; b.className="choice"; b.innerHTML=`<strong>${escapeHTML(opt.label)}</strong><span>${escapeHTML(opt.hint||"")}</span>`;
+    b.onclick=()=>{state.selected=i; optionButtons.forEach(x=>x.classList.remove("selected")); b.classList.add("selected"); setCheckBtnEnabled(button,true)};
+    optionButtons.push(b); choices.appendChild(b);
+  });
+  choices.appendChild(row); setCheckBtnEnabled(button,false);
+  button.onclick=()=>{
+    const opt=scene.question.options[state.selected]; const ok=!!opt?.correct;
+    showFeedbackOnly(); feedback.classList.remove("ok","bad"); feedback.classList.add("show",ok?"ok":"bad"); feedback.style.display="block";
+    fbTag.textContent=ok?"Juist":"Niet helemaal"; fbText.innerHTML=escapeHTML(opt?.feedback||"").replace(/\n/g,"<br>"); setFeedbackIcon(ok?"ok":"bad");
+    state.mode=ok?"readyNext":"answering"; setContinueEnabled(ok); showTryAgain(!ok);
+  };
+  setContinueEnabled(false);
+}
+function renderMulti(scene){
+  modalKicker.textContent=scene.question.kicker||"Vraag"; modalHeader.textContent=scene.question.title||"Vraag"; showOptions(); qText.textContent=scene.question.text||""; choices.innerHTML=""; resetOverlayFeedback(); showTryAgain(false); setAskAnotherVisible(false);
+  state.selectedMulti=new Set();
+  const {row,button}=makeCheckAnswerButton(); const optionButtons=[];
+  const required=scene.question.required || scene.question.options.filter(o=>o.correct).length;
+  function update(){setCheckBtnEnabled(button,state.selectedMulti.size===required)}
+  scene.question.options.forEach((opt,i)=>{
+    const b=document.createElement("button"); b.type="button"; b.className="choice"; b.innerHTML=`<strong>${escapeHTML(opt.label)}</strong><span>${escapeHTML(opt.hint||"")}</span>`;
+    b.onclick=()=>{
+      if(state.selectedMulti.has(i)){state.selectedMulti.delete(i); b.classList.remove("selected")}
+      else {if(state.selectedMulti.size>=required)return; state.selectedMulti.add(i); b.classList.add("selected")}
+      update();
+    };
+    optionButtons.push(b); choices.appendChild(b);
+  });
+  choices.appendChild(row); update();
+  button.onclick=()=>{
+    const chosen=[...state.selectedMulti].map(i=>scene.question.options[i]);
+    const ok=chosen.length===required && chosen.every(o=>o.correct);
+    let msg="";
+    if(ok){msg=scene.question.success||"Juist."}
+    else{
+      const wrong=chosen.find(o=>!o.correct);
+      msg=wrong?.feedback || "Niet helemaal. Controleer of je precies de juiste twee maatregelen hebt geselecteerd.";
+    }
+    showFeedbackOnly(); feedback.classList.remove("ok","bad"); feedback.classList.add("show",ok?"ok":"bad"); feedback.style.display="block";
+    fbTag.textContent=ok?"Juist":"Niet helemaal"; fbText.innerHTML=escapeHTML(msg).replace(/\n/g,"<br>"); setFeedbackIcon(ok?"ok":"bad");
+    state.mode=ok?"readyNext":"answering"; setContinueEnabled(ok); showTryAgain(!ok);
+  };
+  setContinueEnabled(false);
+}
+function renderInterview(scene){
+  modalKicker.textContent=scene.menu.kicker||"Interview"; modalHeader.textContent=scene.menu.title||"Selecteer een vraag"; showOptions(); qText.textContent=scene.menu.text||"Kies de vraag die je helpt om de analyse beter te begrijpen."; choices.innerHTML=""; resetOverlayFeedback(); showTryAgain(false); setAskAnotherVisible(false);
+  const askedSet=state.interviewAsked[scene.id]||new Set();
+  scene.menu.options.forEach(opt=>{
+    const b=document.createElement("button"); b.type="button"; b.className="choice";
+    if(askedSet.has(opt.key) && opt.key!==scene.menu.proceedKey)b.classList.add("asked");
+    if(opt.key===scene.menu.proceedKey)b.classList.add("proceedChoice");
+    b.innerHTML=`<strong>${escapeHTML(opt.label)}</strong><span>${escapeHTML(opt.hint||"")}</span>`;
+    b.onclick=()=>{
+      if(opt.key===scene.menu.proceedKey){goNext(false); return}
+      askedSet.add(opt.key); state.interviewAsked[scene.id]=askedSet; saveProgress();
+      hideModal(); showWaiting(); showTryAgain(false); setAskAnotherVisible(false);
+      state.mode="interviewVideo"; state.interviewPendingTakeaway=opt.response?.takeaway||"";
+      if(opt.response?.videoId)loadVideo(opt.response.videoId);
+      setContinueEnabled(true);
+    };
+    choices.appendChild(b);
+  });
+  setContinueEnabled(false);
+}
+
+function renderScene(autoOpenOverlay=false){
+  const scene=SCENES[state.idx]; state.maxIdx=Math.max(state.maxIdx,state.idx); saveProgress(); updateStepper();
+  hideModal(); showWaiting(); showTryAgain(false); setAskAnotherVisible(false); setContinueVisible(true); setContinueEnabled(true);
+  btnContinueBottom.textContent=scene.type==="interview"?"Doorgaan naar vragen":(scene.type==="finish"?"Afronden":"Doorgaan");
+  stageTitle.textContent=scene.title; setSpeaker(scene.speaker,scene.speakerText);
+  loadVideo(scene.videoId); state.mode="watch";
+  btnOpenYT.onclick=()=>{if(state.currentVideoId)window.open(`https://www.youtube.com/watch?v=${state.currentVideoId}`,"_blank")};
+  btnFullscreen.onclick=()=>{const wrap=$("videoWrap"); if(wrap.requestFullscreen)wrap.requestFullscreen()};
+  if(autoOpenOverlay && scene.type==="interview"){hardStopVideo(); showModal(); state.mode="answering"; setContinueEnabled(false); renderInterview(scene)}
+}
+
+function goToPureVideoScreen(){
+  hideModal(); showTryAgain(false); setAskAnotherVisible(false); showWaiting();
+  const scene=SCENES[state.idx]; loadVideo(scene.videoId); state.mode="watch";
+  setContinueVisible(true); setContinueEnabled(true); btnContinueBottom.textContent=scene.type==="interview"?"Doorgaan naar vragen":(scene.type==="finish"?"Afronden":"Doorgaan");
+}
+function goNext(autoOpenOverlay=false){
+  if(state.idx<SCENES.length-1){state.idx++; state.maxIdx=Math.max(state.maxIdx,state.idx); saveProgress(); renderScene(autoOpenOverlay)}
+  else showEndScreen();
+}
+function showEndScreen(){
+  appRoot.style.display="none"; endScreen.style.display="block"; endHome.style.display="flex"; endReport.style.display="none";
+  reportCase.textContent=CASE_TEXT;
+  const takeaways=[
+    "SRK triagist: knowledge-based gedrag, omdat de triagist bewust redeneerde op basis van ervaring en beperkte informatie.",
+    "SRK regiearts: knowledge-based gedrag, omdat eerdere ervaring met mevrouw Dokkers en professionele inschatting een grote rol speelden.",
+    "GEMS triagist: overtreding, omdat bewust werd afgeweken van de werkwijze om de patiënt zelf te spreken als dat mogelijk is.",
+    "GEMS regiearts: knowledge-based vergissing, omdat eerdere ervaring en het beeld van hyperventilatie te veel gewicht kregen.",
+    "MTO triagist: de kern ligt bij gespreksvoering, begrenzen en organisatorisch competentiebeheer.",
+    "MTO regiearts: de kern ligt bij menselijke beoordeling en een fiatteringsproces dat onvoldoende als onafhankelijke controle functioneerde."
+  ];
+  const measures=[
+    "Train triagisten in gesprekstechnieken voor situaties waarin een naaste het gesprek wil overnemen.",
+    "Laat regieartsen bij fiattering drie vaste punten actief controleren: oorspronkelijke hulpvraag, toegekende urgentie en onderbouwing van afschaling.",
+    "Neem gesprekstechnieken voor lastige triagesituaties structureel op in het competentiebeheer van triagisten.",
+    "Richt fiattering zo in dat volledig nalopen van het triageverslag duidelijk, verplichtend, toetsbaar en periodiek geëvalueerd is."
+  ];
+  reportTakeaways.innerHTML=""; takeaways.forEach(t=>{const li=document.createElement("li"); li.textContent=t; reportTakeaways.appendChild(li)});
+  reportMeasures.innerHTML=""; measures.forEach(m=>{const li=document.createElement("li"); li.textContent=m; reportMeasures.appendChild(li)});
+}
+function resetScenario(){
+  state.idx=0; state.maxIdx=0; state.mode="watch"; state.interviewAsked={S3:new Set(),S5:new Set()};
+  try{localStorage.removeItem(PROG_KEY)}catch(e){}
+  endScreen.style.display="none"; appRoot.style.display="block"; renderScene(false);
+}
+
+scrim.onclick=()=>goToPureVideoScreen();
+btnSecondaryBottom.onclick=()=>goToPureVideoScreen();
+btnContinueBottom.onclick=()=>{
+  if(btnContinueBottom.disabled)return;
+  const scene=SCENES[state.idx];
+  if(state.mode==="interviewVideo"){
+    hardStopVideo(); showModal(); showFeedbackOnly(); resetOverlayFeedback();
+    feedback.classList.add("show","ok"); feedback.style.display="block"; fbTag.textContent="Belangrijk inzicht"; fbText.innerHTML=escapeHTML(state.interviewPendingTakeaway||"").replace(/\n/g,"<br>"); setFeedbackIcon("ok");
+    setContinueVisible(false); setAskAnotherVisible(true);
+    btnAskAnother.textContent="Terug naar interviewvragen";
+    btnAskAnother.onclick=()=>{setContinueVisible(true); setAskAnotherVisible(false); hardStopVideo(); showModal(); state.mode="answering"; setContinueEnabled(false); renderInterview(scene)};
+    state.mode="answering"; return;
+  }
+  if(state.mode==="readyNext"){goToPureVideoScreen(); goNext(false); return}
+  if(state.mode==="watch"){
+    if(scene.type==="finish"){showEndScreen(); return}
+    hardStopVideo(); showModal(); state.mode="answering"; setContinueEnabled(false); showTryAgain(false); setContinueVisible(true);
+    if(scene.type==="single")renderSingle(scene);
+    else if(scene.type==="multi")renderMulti(scene);
+    else if(scene.type==="interview")renderInterview(scene);
+  }
+};
+btnTryBottom.onclick=()=>{
+  const scene=SCENES[state.idx]; hardStopVideo(); showModal(); state.mode="answering"; setContinueEnabled(false); showTryAgain(false); setContinueVisible(true);
+  if(scene.type==="single")renderSingle(scene); else if(scene.type==="multi")renderMulti(scene);
+};
+btnToggleNotes.onclick=()=>{state.notesCollapsed=!state.notesCollapsed; updateNotesPanelUI(); saveNotesPanelState()};
+btnAddNote.onclick=()=>addNoteAuto();
+btnDeleteAllNotes.onclick=()=>deleteAllNotes();
+btnCopyNotes.onclick=()=>copyAllNotes();
+document.addEventListener("mousedown",e=>{if(!e.target.closest("#notesPane"))setEditingShadow(null)});
+
+btnReplayScenario.onclick=()=>resetScenario();
+btnOpenReport.onclick=()=>{endHome.style.display="none"; endReport.style.display="block"};
+btnBackToDone.onclick=()=>{endReport.style.display="none"; endHome.style.display="flex"};
+btnCopyReport.onclick=async()=>{
+  const lines=[]; lines.push("EINDRAPPORTAGE","","SAMENVATTING VAN DE CASUS",reportCase.textContent||"","","BEVINDINGEN EN LEERPUNTEN");
+  Array.from(reportTakeaways.querySelectorAll("li")).forEach(li=>lines.push("- "+li.textContent));
+  lines.push("","AANBEVOLEN MAATREGELEN"); Array.from(reportMeasures.querySelectorAll("li")).forEach(li=>lines.push("- "+li.textContent));
+  try{await navigator.clipboard.writeText(lines.join("\n")); alert("Rapport gekopieerd naar het klembord.")}catch(e){alert("Kopiëren mislukt. Kopieer handmatig.")}
+};
+
+loadNotes(); loadProgress(); loadNotesPanelState(); updateNotesPanelUI(); renderScene();
+</script>
+</body>
+</html>
